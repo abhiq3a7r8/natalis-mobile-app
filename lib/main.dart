@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
       title: 'Natalis Base',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: primarySeedColor),
-        primaryColor: primarySeedColor,
+        primaryColor: Colors.teal,
         visualDensity: VisualDensity.adaptivePlatformDensity,
         useMaterial3: true,
       ),

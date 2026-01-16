@@ -27,7 +27,6 @@ class ScanResult {
 class ScanService {
   static const String _baseUrl = "http://127.0.0.1:5003";
 
-
   Future<ScanResult> uploadAndAnalyzeScan({
     required File imageFile,
     String race = "Asian",
@@ -40,12 +39,7 @@ class ScanService {
       ..fields["race"] = race
       ..fields["pixel_size_mm"] = pixelSizeMm.toString()
       ..fields["scan_date"] = scanDate.toIso8601String().split("T").first
-      ..files.add(
-        await http.MultipartFile.fromPath(
-          "image",
-          imageFile.path,
-        ),
-      );
+      ..files.add(await http.MultipartFile.fromPath("image", imageFile.path));
 
     final streamedResponse = await request.send();
     final responseBody = await streamedResponse.stream.bytesToString();
@@ -80,8 +74,7 @@ class ScanService {
 
   /// Fetch annotated image as Base64
   Future<String> _fetchAnnotatedImage(String imageId) async {
-    final uri =
-    Uri.parse("$_baseUrl/api/get_annotated_image/$imageId");
+    final uri = Uri.parse("$_baseUrl/api/get_annotated_image/$imageId");
 
     final response = await http.get(uri);
 
