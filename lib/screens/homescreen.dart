@@ -1,15 +1,11 @@
 import 'dart:io';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:natalis_frontend/models/Scan.dart';
-import 'scan_result_screen.dart';
-
 
 import '../services/ScanService.dart';
 import 'add_test_screen.dart';
+import 'scan_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,12 +16,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _isLoading = false; // 🔥 loading state
 
-  // Image picker instance
   final ImagePicker _picker = ImagePicker();
 
   List<Widget> _buildWidgetOptions(BuildContext context) {
     final ScanService scanService = ScanService();
+
     return <Widget>[
       // ---------------- HOME TAB ----------------
       Center(
@@ -36,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'Home',
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
             ),
+
             const SizedBox(height: 40),
 
             // -------- ADD NEW TEST BUTTON --------
@@ -43,15 +41,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () {
                 Navigator.of(context).push(
                   PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) =>
+                    pageBuilder: (_, animation, __) =>
                     const AddTestScreen(),
-                    transitionsBuilder:
-                        (context, animation, secondaryAnimation, child) {
-                      const begin = Offset(0.0, 1.0);
-                      const end = Offset.zero;
-                      const curve = Curves.ease;
-                      final tween = Tween(begin: begin, end: end)
-                          .chain(CurveTween(curve: curve));
+                    transitionsBuilder: (_, animation, __, child) {
+                      final tween = Tween(
+                        begin: const Offset(0.0, 1.0),
+                        end: Offset.zero,
+                      ).chain(CurveTween(curve: Curves.ease));
                       return SlideTransition(
                         position: animation.drive(tween),
                         child: child,
@@ -60,14 +56,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              icon: const FaIcon(
-                FontAwesomeIcons.fileCirclePlus,
-                size: 18,
-              ),
+              icon: const FaIcon(FontAwesomeIcons.fileCirclePlus, size: 18),
               label: const Text('Add New Test'),
               style: ElevatedButton.styleFrom(
-                shadowColor: Colors.transparent,
                 backgroundColor: Colors.black12,
+                shadowColor: Colors.transparent,
                 padding:
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 textStyle: const TextStyle(
@@ -79,20 +72,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 40),
 
-            // -------- UPLOAD SCAN BUTTON (PHOTO PICKER) --------
+            // -------- UPLOAD SCAN BUTTON --------
             ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: _isLoading
+                  ? null
+                  : () async {
                 final XFile? image = await _picker.pickImage(
                   source: ImageSource.gallery,
                 );
 
                 if (image == null) return;
 
+                setState(() => _isLoading = true);
+
                 try {
-                  final scanResult = await scanService.uploadAndAnalyzeScan(
+                  final scanResult =
+                  await scanService.uploadAndAnalyzeScan(
                     imageFile: File(image.path),
                     scanDate: DateTime.now(),
-                    race: "Asian & Pacific Islander", // IMPORTANT: backend expects this
+                    race: "Asian & Pacific Islander",
                     pixelSizeMm: 0.5,
                   );
 
@@ -101,28 +99,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ScanResultScreen(result: scanResult),
+                      builder: (_) =>
+                          ScanResultScreen(result: scanResult),
                     ),
                   );
-
-
                 } catch (e) {
                   debugPrint("Scan upload failed: $e");
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Upload failed')),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Upload failed'),
+                      ),
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _isLoading = false);
+                  }
                 }
               },
-
-              icon: const FaIcon(
-                FontAwesomeIcons.upload,
-                size: 18,
+              icon: _isLoading
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.black,
+                ),
+              )
+                  : const FaIcon(FontAwesomeIcons.upload, size: 18),
+              label: Text(
+                _isLoading ? 'Analyzing Scan...' : 'Upload Scan',
               ),
-              label: const Text('Upload Scan'),
               style: ElevatedButton.styleFrom(
-                shadowColor: Colors.transparent,
                 backgroundColor: Colors.black12,
+                shadowColor: Colors.transparent,
                 padding:
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 textStyle: const TextStyle(
@@ -154,9 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   @override
@@ -185,9 +195,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      body: widgetOptions.elementAt(_selectedIndex),
+      body: widgetOptions[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        selectedItemColor: Theme.of(context).primaryColor,
+        items: const [
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.houseMedical),
             label: 'Home',
@@ -201,9 +214,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Profile',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        onTap: _onItemTapped,
       ),
     );
   }
