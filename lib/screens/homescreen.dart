@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:natalis_frontend/models/Scan.dart';
+import 'scan_result_screen.dart';
+
 
 import '../services/ScanService.dart';
 import 'add_test_screen.dart';
@@ -84,29 +86,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   source: ImageSource.gallery,
                 );
 
-                if (image != null) {
-                  final Uint8List imageBytes = await image.readAsBytes();
-                  final String base64Image = base64Encode(imageBytes);
+                if (image == null) return;
 
-                  debugPrint("Selected image Base64 length: ${base64Image.length}");
-
-                  final Scan scan = Scan(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    filename: image.name,
-                    base64Data: base64Image,
-                    uploadedAt: DateTime.now(),
+                try {
+                  final scanResult = await scanService.uploadAndAnalyzeScan(
+                    imageFile: File(image.path),
+                    scanDate: DateTime.now(),
+                    race: "Asian & Pacific Islander", // IMPORTANT: backend expects this
+                    pixelSizeMm: 0.5,
                   );
 
-                  bool success = await scanService.uploadScan(File(scan.base64Data));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(success ? 'Scan uploaded!' : 'Upload failed.'),
+                  if (!context.mounted) return;
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ScanResultScreen(result: scanResult),
                     ),
                   );
 
 
+                } catch (e) {
+                  debugPrint("Scan upload failed: $e");
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Upload failed')),
+                  );
                 }
               },
+
               icon: const FaIcon(
                 FontAwesomeIcons.upload,
                 size: 18,
